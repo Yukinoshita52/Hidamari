@@ -77,7 +77,7 @@ async function sync(plugin, repo) {
   const info = checked(await api(''), '读取仓库');
   if (!info.private || info.owner.login.toLowerCase() !== owner.toLowerCase()) throw Error('只支持本人名下的私有仓库');
   const vault = plugin.app.vault;
-  const all = !!plugin.config?.allMarkdown;
+  const all = plugin.config?.allMarkdown === true;
   const version = all ? 2 : 1;
   const configDir = vault.configDir?.toLowerCase() || '.obsidian';
   const accept = all ? p => validMarkdownPath(p) && !p.toLowerCase().startsWith(configDir + '/') : validPath;

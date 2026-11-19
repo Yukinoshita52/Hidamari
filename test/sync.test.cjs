@@ -87,6 +87,7 @@ test('模拟两端首次同步、离线冲突、并发版本拒绝、重试、�
   assert.deepEqual([...b.files.keys()], [path]);
   assert.equal(b.files.get(path).text, '原文');
   for (const excluded of [...a.files.keys()].filter(p => p !== path)) a.files.delete(excluded);
+  a.config = { allMarkdown: 'false' };
   a.files.get(path).text = '手机';
   b.files.get(path).text = '电脑';
   await sync(b, 'test');

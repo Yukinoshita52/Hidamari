@@ -18,7 +18,7 @@ class Preferences extends PluginSettingTab {
         await p.saveData(p.config);
       }));
     new Setting(el).setName('同步全库 Markdown').setDesc('包括普通笔记和原生每日笔记。两端都开启后使用独立快照；关闭时沿用旧版三个目录。')
-      .addToggle(t => t.setValue(!!p.config.allMarkdown).onChange(async enabled => {
+      .addToggle(t => t.setValue(p.config.allMarkdown === true).onChange(async enabled => {
         p.config.allMarkdown = enabled;
         await p.saveData(p.config);
       }));
