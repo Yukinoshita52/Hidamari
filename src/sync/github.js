@@ -97,10 +97,14 @@ async function sync(plugin, repo) {
   const local = {};
   const candidates = all ? vault.getMarkdownFiles() : legacyMarkdownFiles(vault);
   for (const file of candidates) {
-    const rel = all ? file.path : file.path.slice(ROOT.length + 1);
+    const filePath = file.path;
+    if (!all && !filePath.startsWith(ROOT + '/')) throw Error('同步期间文件已移动，请重新同步');
+    const rel = all ? filePath : filePath.slice(ROOT.length + 1);
     if (all && (rel.split('/').some(part => part.startsWith('.')) || rel.toLowerCase().startsWith(configDir + '/'))) continue;
     if (!accept(rel)) throw Error('文件名不兼容：' + rel);
-    local[rel] = await vault.read(file);
+    const text = await vault.read(file);
+    if (file.path !== filePath) throw Error('同步期间文件已移动，请重新同步');
+    local[rel] = text;
   }
   validate(local, accept);
   const { files, conflicts } = merge(base, local, remote, accept);

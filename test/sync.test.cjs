@@ -71,6 +71,18 @@ test('模拟两端首次同步、离线冲突、并发版本拒绝、重试、�
   });
   let sync;
   try { ({ sync } = require('../src/sync/github')); } finally { m.mock.restore(); }
+  // 候选文件对象会随着 Obsidian 中的移动而更新路径。
+  const moving = device();
+  await moving.app.vault.create('雪间手帐/笔记/A.md', 'A');
+  await moving.app.vault.create('雪间手帐/笔记/B.md', 'B');
+  const firstRead = mock.method(moving.app.vault, 'read', async file => {
+    moving.files.get('雪间手帐/笔记/B.md').path = '私人资料/笔记/B.md';
+    return file.text;
+  });
+  await assert.rejects(sync(moving, 'test'), /文件已移动/);
+  assert.equal(firstRead.mock.callCount(), 1);
+  assert.equal(revision, 0);
+
   const a = device(), b = device(), path = '雪间手帐/' + note;
   const fileListA = mock.method(a.app.vault, 'getMarkdownFiles');
   const fileListB = mock.method(b.app.vault, 'getMarkdownFiles');
