@@ -9,14 +9,15 @@ function isLiteral(state, pos) {
   return false;
 }
 
-function removeCheckbox(view, isMarkdown) {
+function removeListMarker(view, isMarkdown) {
   const { state } = view;
   const { main, ranges } = state.selection;
   if (view.composing || state.readOnly || ranges.length !== 1 || !main.empty || !isMarkdown(state)) return false;
   const line = state.doc.lineAt(main.head);
-  const prefix = state.sliceDoc(line.from, main.head);
-  const match = /^([ \t]*(?:>[ \t]*)*)(?:[-+*]|\d+[.)]) \[[ xX]\] $/.exec(prefix);
-  if (!match || isLiteral(state, main.head - 1)) return false;
+  const match = /^([ \t]*(?:>[ \t]*)*)(?:(?:[-+*]|\d+[.)]) \[[ xX]\] |[-+*][ \t]+)/.exec(line.text);
+  if (!match || main.head !== line.from + match[0].length || isLiteral(state, main.head - 1)) return false;
+  // 带空格的 Markdown 分隔线可能与无序列表有相同的开头。
+  if (/^([-*])(?:[ \t]*\1){2,}[ \t]*$/.test(line.text.slice(match[1].length))) return false;
 
   const from = line.from + match[1].length;
   view.dispatch({ changes: { from, to: main.head }, selection: { anchor: from }, userEvent: 'delete.backward' });
@@ -56,7 +57,7 @@ function todoExtension(isMarkdown) {
     } else return tr;
     return [tr, { sequential: true, changes: { from, to: cursor, insert }, selection: { anchor: from + insert.length } }];
   });
-  const backspace = view => removeCheckbox(view, isMarkdown);
+  const backspace = view => removeListMarker(view, isMarkdown);
   return [
     expand,
     Prec.highest(keymap.of([{ key: 'Backspace', run: backspace }])),
