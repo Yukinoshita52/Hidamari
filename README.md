@@ -17,7 +17,7 @@ On a new line, type `[]` or `【】` and press Space. Hidamari expands the brack
 3. On each device, open **Settings → Hidamari**, enter the same Client ID and repository name, and select **登录 GitHub** (sign in). Enter the device code on GitHub. The token stays in memory for the current session.
 4. To include regular vault notes and daily notes, enable **同步全库 Markdown** (sync all Markdown) on each device. Run **Hidamari: 立即同步** (sync now) on the device that already has your notes, then on the other device. Automatic sync runs every five minutes while Obsidian is in the foreground and you are signed in.
 
-With whole-vault sync turned off, Hidamari syncs only Markdown files directly inside the legacy folders `雪间手帐/日记/`, `雪间手帐/笔记/`, and `雪间手帐/待办/`. Whole-vault sync includes Markdown in subfolders and skips hidden directories, vault configuration, and attachments. If both devices edit the same note, the remote version keeps its name and the local edit is saved alongside it as a separate copy.
+With whole-vault sync turned off, Hidamari syncs only Markdown files directly inside the legacy folders `雪间手帐/日记/`, `雪间手帐/笔记/`, and `雪间手帐/待办/`. Whole-vault sync includes Markdown in subfolders and skips hidden directories, vault configuration, and attachments. If both devices edit the same note, the remote version keeps its name and the local edit is saved alongside it as a separate copy. Deleting a synced note on one device moves the unchanged copy on the other device to the vault trash at the next sync. If the other copy was edited, Hidamari keeps the edit.
 
 ## What is sent to GitHub?
 
