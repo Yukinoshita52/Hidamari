@@ -1,13 +1,6 @@
 const { EditorState, Prec } = require('@codemirror/state');
 const { EditorView, keymap } = require('@codemirror/view');
-const { syntaxTree } = require('@codemirror/language');
-
-function isLiteral(state, pos) {
-  for (let node = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
-    if (/codeblock|code[-_]?block|inlinecode|inline[-_]?code|frontmatter|hmd-code|inline-code/i.test(node.name)) return true;
-  }
-  return false;
-}
+const { isLiteral } = require('./markdown');
 
 function removeListMarker(view, isMarkdown) {
   const { state } = view;

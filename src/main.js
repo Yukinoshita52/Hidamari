@@ -1,5 +1,6 @@
 const { Plugin, PluginSettingTab, Setting, Notice, editorInfoField } = require('obsidian');
 const { todoExtension } = require('./editor/todo');
+const { mixedSpacing } = require('./editor/mixed-spacing');
 const { login, sync } = require('./sync/github');
 
 class Preferences extends PluginSettingTab {
@@ -45,7 +46,8 @@ module.exports = class SnowPlugin extends Plugin {
     this.stopped = false;
     this.config = { repo: '', client: '', auto: true, ...await this.loadData() };
     this.addSettingTab(new Preferences(this.app, this));
-    this.registerEditorExtension(todoExtension(state => state.field(editorInfoField, false)?.file?.extension === 'md'));
+    const isMarkdown = state => state.field(editorInfoField, false)?.file?.extension === 'md';
+    this.registerEditorExtension([todoExtension(isMarkdown), mixedSpacing(isMarkdown)]);
     this.registerInterval(window.setInterval(() => {
       if (this.config.auto && this.session && this.config.repo && !this.busy && !document.hidden) this.synchronize();
     }, 300000));
