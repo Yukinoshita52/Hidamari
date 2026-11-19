@@ -14,13 +14,16 @@ function removeListMarker(view, isMarkdown) {
   const { main, ranges } = state.selection;
   if (view.composing || state.readOnly || ranges.length !== 1 || !main.empty || !isMarkdown(state)) return false;
   const line = state.doc.lineAt(main.head);
-  const match = /^([ \t]*(?:>[ \t]*)*)(?:(?:[-+*]|\d+[.)]) \[[ xX]\] |[-+*][ \t]+)/.exec(line.text);
-  if (!match || main.head !== line.from + match[0].length || isLiteral(state, main.head - 1)) return false;
+  const match = /^([ \t]*(?:>[ \t]*)*)(?:(?:[-+*]|\d+[.)]) \[[ xX]\] |[-+*][ \t]+|(\d{1,9}[.)])(?:[ \t]+|$))/.exec(line.text);
+  if (!match) return false;
+  const from = line.from + match[1].length;
+  const to = line.from + match[0].length;
+  const afterNumber = match[2] && main.head === from + match[2].length;
+  if ((main.head !== to && !afterNumber) || isLiteral(state, main.head - 1)) return false;
   // 带空格的 Markdown 分隔线可能与无序列表有相同的开头。
   if (/^([-*])(?:[ \t]*\1){2,}[ \t]*$/.test(line.text.slice(match[1].length))) return false;
 
-  const from = line.from + match[1].length;
-  view.dispatch({ changes: { from, to: main.head }, selection: { anchor: from }, userEvent: 'delete.backward' });
+  view.dispatch({ changes: { from, to }, selection: { anchor: from }, userEvent: 'delete.backward' });
   return true;
 }
 

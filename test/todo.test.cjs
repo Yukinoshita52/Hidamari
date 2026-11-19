@@ -60,9 +60,23 @@ test('Backspace 在无序列表正文开头移除整个标记', () => {
   }
 });
 
-test('正文内部、分隔线、普通有序列表及待办框前沿用原生退格', () => {
+test('有序列表可在编号后或正文开头一次退格，保留缩进和相邻列表项', () => {
+  for (const [prefix, marker, body, offset] of [
+    ['', '2.', '', 2], ['', '2. ', '', 3], ['', '2. ', '', 2],
+    ['', '10. ', '事项', 4], ['  ', '12)  ', '子项', 3],
+    ['> ', '3)\t', '引用', 3], ['', '1. [x] ', '完成', 7]
+  ]) {
+    const before = '1. 上一项\n' + prefix;
+    const after = body + '\n3. 下一项';
+    assert.deepEqual(backspace(before + marker + after, { anchor: before.length + offset }),
+      [true, before + after, before.length]);
+  }
+});
+
+test('正文内部、分隔线、小数和待办框前沿用原生退格', () => {
   for (const [doc, anchor] of [
-    ['- 业务', 3], ['- - -', 2], ['> * * *', 4], ['1. 业务', 3],
+    ['- 业务', 3], ['- - -', 2], ['> * * *', 4], ['1. 业务', 4],
+    ['2.5', 2], ['正文 2.', 5], ['1. [ ] 待办', 3], ['1234567890. ', 12],
     ['- [ ] 待办', 2], ['-   业务', 2], ['正文 - 业务', 5]
   ]) {
     assert.deepEqual(backspace(doc, { anchor }), [false, doc, anchor]);
