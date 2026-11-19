@@ -21,12 +21,22 @@ test('拒绝越界路径、大小写重名和畸形正文', () => {
   }
 });
 
-class TFile { constructor(path, text) { this.path = path; this.text = text; } }
+class TFile {
+  constructor(path, text) { this.path = path; this.text = text; }
+  get extension() { return this.path.split('.').pop(); }
+}
+class TFolder {
+  constructor(children) { this.children = children; }
+}
 function device() {
   const files = new Map(), storage = new Map();
   const vault = {
     getMarkdownFiles: () => [...files.values()],
-    getAbstractFileByPath: p => files.get(p),
+    getAbstractFileByPath: p => {
+      if (files.has(p)) return files.get(p);
+      const children = [...files.values()].filter(f => f.path.slice(0, f.path.lastIndexOf('/')) === p);
+      return children.length ? new TFolder(children) : null;
+    },
     read: async f => f.text,
     process: async (f, fn) => { f.text = fn(f.text); },
     create: async (p, text) => { assert.ok(!files.has(p)); files.set(p, new TFile(p, text)); },
@@ -57,15 +67,26 @@ test('模拟两端首次同步、离线冲突、并发版本拒绝、重试、�
   };
   const original = Module._load;
   const m = mock.method(Module, '_load', function (name, ...args) {
-    return name === 'obsidian' ? { requestUrl, TFile } : original.call(this, name, ...args);
+    return name === 'obsidian' ? { requestUrl, TFile, TFolder } : original.call(this, name, ...args);
   });
   let sync;
   try { ({ sync } = require('../src/sync/github')); } finally { m.mock.restore(); }
   const a = device(), b = device(), path = '雪间手帐/' + note;
+  const fileListA = mock.method(a.app.vault, 'getMarkdownFiles');
+  const fileListB = mock.method(b.app.vault, 'getMarkdownFiles');
+  const lookups = mock.method(a.app.vault, 'getAbstractFileByPath');
+  const reads = mock.method(a.app.vault, 'read');
   await a.app.vault.create(path, '原文');
+  for (const excluded of ['私人.md', '雪间手帐/笔记/附件.png', '雪间手帐/笔记/子目录/笔记.md']) {
+    await a.app.vault.create(excluded, '不在默认范围内');
+  }
   await sync(a, 'test');
   await sync(b, 'test');
+  assert.deepEqual(lookups.mock.calls.map(c => c.arguments[0]), ['雪间手帐/日记', '雪间手帐/笔记', '雪间手帐/待办']);
+  assert.deepEqual(reads.mock.calls.map(c => c.arguments[0].path), [path]);
+  assert.deepEqual([...b.files.keys()], [path]);
   assert.equal(b.files.get(path).text, '原文');
+  for (const excluded of [...a.files.keys()].filter(p => p !== path)) a.files.delete(excluded);
   a.files.get(path).text = '手机';
   b.files.get(path).text = '电脑';
   await sync(b, 'test');
@@ -79,6 +100,8 @@ test('模拟两端首次同步、离线冲突、并发版本拒绝、重试、�
   await sync(a, 'test');
   await sync(b, 'test');
   assert.equal(b.files.size, 1);
+  assert.equal(fileListA.mock.callCount(), 0);
+  assert.equal(fileListB.mock.callCount(), 0);
   version = 2;
   content = undefined;
   revision = 0;
@@ -92,6 +115,8 @@ test('模拟两端首次同步、离线冲突、并发版本拒绝、重试、�
     assert.equal(b.files.get(path).text, '- [ ] 正文');
   }
   assert.equal(b.files.has('.obsidian/隐藏.md'), false);
+  assert.equal(fileListA.mock.callCount(), 1);
+  assert.equal(fileListB.mock.callCount(), 1);
   remoteOwner = 'different-user';
   await assert.rejects(sync(a, 'test'), /私有仓库/);
   remoteOwner = 'Sample-User';

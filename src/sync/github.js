@@ -1,4 +1,4 @@
-const { Modal, Notice, requestUrl, TFile } = require('obsidian');
+const { Modal, Notice, requestUrl, TFile, TFolder } = require('obsidian');
 const { ROOT, folders, validPath, validMarkdownPath, validate, merge } = require('./model');
 const limit = 950000;
 async function request(url, method, body, token) {
@@ -49,6 +49,18 @@ function encode(bytes) {
   for (let i = 0; i < bytes.length; i += 8192) raw += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return btoa(raw);
 }
+function legacyMarkdownFiles(vault) {
+  const files = [];
+  for (const name of folders) {
+    const folder = vault.getAbstractFileByPath(ROOT + '/' + name);
+    if (!(folder instanceof TFolder)) continue;
+    for (const child of folder.children) {
+      if (child instanceof TFile && child.extension.toLowerCase() === 'md') files.push(child);
+    }
+  }
+  return files;
+}
+
 async function sync(plugin, repo) {
   if (!plugin.session) throw Error('请在 Hidamari 设置中登录 GitHub');
   if (!/^[a-z0-9_-][a-z0-9._-]*$/i.test(repo)) throw Error('请填写个人私有仓库名称');
@@ -83,15 +95,10 @@ async function sync(plugin, repo) {
     sha = data.sha;
   } else if (Object.keys(base).length) throw Error('已有同步基线，但远端快照缺失，请先恢复仓库文件');
   const local = {};
-  for (const file of vault.getMarkdownFiles()) {
-    let rel = file.path;
-    if (all) {
-      if (rel.split('/').some(part => part.startsWith('.')) || rel.toLowerCase().startsWith(configDir + '/')) continue;
-    } else {
-      if (!rel.startsWith(ROOT + '/')) continue;
-      rel = rel.slice(ROOT.length + 1);
-      if (!folders.includes(rel.split('/')[0]) || rel.split('/').length !== 2) continue;
-    }
+  const candidates = all ? vault.getMarkdownFiles() : legacyMarkdownFiles(vault);
+  for (const file of candidates) {
+    const rel = all ? file.path : file.path.slice(ROOT.length + 1);
+    if (all && (rel.split('/').some(part => part.startsWith('.')) || rel.toLowerCase().startsWith(configDir + '/'))) continue;
     if (!accept(rel)) throw Error('文件名不兼容：' + rel);
     local[rel] = await vault.read(file);
   }
