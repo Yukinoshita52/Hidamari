@@ -1,0 +1,17 @@
+{
+  "name": "hidamari",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Yukinoshita52",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.cjs"
+  },
+  "devDependencies": {
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
+    "esbuild": "^0.28.2"
+  },
+  "license": "MIT"
+}

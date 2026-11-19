@@ -1,0 +1,9 @@
+{
+  "id": "yuki-workbench",
+  "name": "Hidamari",
+  "version": "0.1.0",
+  "minAppVersion": "1.7.2",
+  "description": "Create Markdown checkboxes as you type and optionally sync notes between devices through your own private GitHub repository.",
+  "author": "Yukinoshita52",
+  "isDesktopOnly": false
+}
