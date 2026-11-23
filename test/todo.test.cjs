@@ -1,12 +1,14 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { keymap } = require('@codemirror/view');
+const { EditorView, keymap } = require('@codemirror/view');
 const { EditorState, Transaction } = require('@codemirror/state');
 const { todoExtension } = require('../src/editor/todo');
 
+const { quoteExtension } = require('../src/editor/quote');
+
 function enter(before, input, { markdown = true, event = 'input.type', after = '' } = {}) {
   let state = EditorState.create({ doc: before + after, selection: { anchor: before.length },
-    extensions: [todoExtension(() => markdown)] });
+    extensions: [todoExtension(() => markdown), quoteExtension(() => markdown)] });
   for (const text of input) {
     const pos = state.selection.main.head;
     state = state.update({ changes: { from: pos, insert: text }, selection: { anchor: pos + text.length },
@@ -81,4 +83,44 @@ test('正文内部、分隔线、小数和待办框前沿用原生退格', () =>
   ]) {
     assert.deepEqual(backspace(doc, { anchor }), [false, doc, anchor]);
   }
+});
+
+test('引用标记后一次退格只移除当前层，保留正文和换行', () => {
+  for (const [prefix, marker, body] of [
+    ['', '> ', '正文'], ['', '> ', ''], ['  ', '> ', '  正文'], ['> ', '> ', '嵌套'], ['', '>\t', '列表']
+  ]) {
+    const before = '上一行\n' + prefix;
+    const after = body + '\n下一行';
+    assert.deepEqual(backspace(before + marker + after, { anchor: before.length + marker.length }),
+      [true, before + after, before.length]);
+  }
+  assert.equal(backspace('正文 > 引号', { anchor: 5 })[0], false);
+  assert.equal(backspace('> 引用', { anchor: 3 })[0], false);
+});
+
+test('行首的半角和全角引用标记要等空格才生效', () => {
+  assert.deepEqual(enter('', '>'), ['\\>', 2]);
+  assert.deepEqual(enter('', '》'), ['》', 1]);
+  for (const marker of ['>', '》']) {
+    assert.deepEqual(enter('', marker + ' ', { after: '正文' }), ['> 正文', 2]);
+    assert.deepEqual(enter('> ', marker + ' 内层'), ['> > 内层', 6]);
+  }
+  assert.deepEqual(enter('', ['》 '], { event: 'input.type.compose' }), ['> ', 2]);
+  assert.deepEqual(enter('正文', '> '), ['正文> ', 4]);
+  assert.deepEqual(enter('\\', '> '), ['\\> ', 3]);
+  assert.deepEqual(enter('', '》 ', { markdown: false }), ['》 ', 2]);
+  assert.deepEqual(enter('', ['》 '], { event: 'input.paste' }), ['》 ', 2]);
+});
+
+test('半角引用确认前只显示原字符，一次退格可清除整个输入', () => {
+  let state = EditorState.create({ extensions: [todoExtension(() => true), quoteExtension(() => true)] });
+  state = state.update({ changes: { from: 0, insert: '>' }, selection: { anchor: 1 }, userEvent: 'input.type' }).state;
+  const hidden = [];
+  for (const set of state.facet(EditorView.decorations)) {
+    set.between(0, state.doc.length, (from, to) => hidden.push(state.sliceDoc(from, to)));
+  }
+  assert.deepEqual(hidden, ['\\']);
+  const binding = state.facet(keymap).flat().find(b => b.key === 'Backspace');
+  assert.equal(binding.run({ state, dispatch(spec) { state = state.update(spec).state; } }), true);
+  assert.deepEqual([state.sliceDoc(), state.selection.main.head], ['', 0]);
 });

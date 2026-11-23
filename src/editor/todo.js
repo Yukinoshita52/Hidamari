@@ -1,12 +1,14 @@
 const { EditorState, Prec } = require('@codemirror/state');
 const { EditorView, keymap } = require('@codemirror/view');
+const { removeQuoteMarker } = require('./quote');
 const { isLiteral } = require('./markdown');
 
-function removeListMarker(view, isMarkdown) {
+function removeBlockMarker(view, isMarkdown) {
   const { state } = view;
   const { main, ranges } = state.selection;
   if (view.composing || state.readOnly || ranges.length !== 1 || !main.empty || !isMarkdown(state)) return false;
   const line = state.doc.lineAt(main.head);
+  if (removeQuoteMarker(view, line, main.head)) return true;
   const match = /^([ \t]*(?:>[ \t]*)*)(?:(?:[-+*]|\d+[.)]) \[[ xX]\] |[-+*][ \t]+|(\d{1,9}[.)])(?:[ \t]+|$))/.exec(line.text);
   if (!match) return false;
   const from = line.from + match[1].length;
@@ -53,7 +55,7 @@ function todoExtension(isMarkdown) {
     } else return tr;
     return [tr, { sequential: true, changes: { from, to: cursor, insert }, selection: { anchor: from + insert.length } }];
   });
-  const backspace = view => removeListMarker(view, isMarkdown);
+  const backspace = view => removeBlockMarker(view, isMarkdown);
   return [
     expand,
     Prec.highest(keymap.of([{ key: 'Backspace', run: backspace }])),
