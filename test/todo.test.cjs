@@ -124,3 +124,24 @@ test('半角引用确认前只显示原字符，一次退格可清除整个输�
   assert.equal(binding.run({ state, dispatch(spec) { state = state.update(spec).state; } }), true);
   assert.deepEqual([state.sliceDoc(), state.selection.main.head], ['', 0]);
 });
+
+test('多行半角引用可以分别确认和退格', () => {
+  let state = EditorState.create({ doc: '\n', extensions: [todoExtension(() => true), quoteExtension(() => true)] });
+  function type(pos, text) {
+    state = state.update({ changes: { from: pos, insert: text }, selection: { anchor: pos + text.length },
+      userEvent: 'input.type' }).state;
+  }
+  type(0, '>');
+  type(state.doc.length, '>');
+  const hidden = [];
+  for (const set of state.facet(EditorView.decorations)) {
+    set.between(0, state.doc.length, (from, to) => hidden.push([from, to]));
+  }
+  assert.deepEqual(hidden, [[0, 1], [3, 4]]);
+  type(2, ' ');
+  assert.equal(state.sliceDoc(), '> \n\\>');
+  state = state.update({ selection: { anchor: state.doc.length } }).state;
+  const binding = state.facet(keymap).flat().find(b => b.key === 'Backspace');
+  assert.equal(binding.run({ state, dispatch(spec) { state = state.update(spec).state; } }), true);
+  assert.equal(state.sliceDoc(), '> \n');
+});

@@ -4,17 +4,28 @@ const { isLiteral } = require('./markdown');
 
 const pendingAt = StateEffect.define();
 const pendingQuote = StateField.define({
-  create: () => null,
-  update(pos, tr) {
-    for (const effect of tr.effects) if (effect.is(pendingAt)) return effect.value;
-    if (pos === null) return null;
-    const mapped = tr.changes.mapPos(pos, 1);
-    return tr.newDoc.sliceString(mapped, mapped + 2) === '\\>'
-      ? mapped : null;
+  create: () => Decoration.none,
+  update(markers, tr) {
+    if (tr.docChanged) {
+      markers = markers.map(tr.changes).update({
+        filter: (from, to) => to === from + 1 && tr.newDoc.sliceString(from, from + 2) === '\\>'
+      });
+    }
+    for (const effect of tr.effects) {
+      if (effect.is(pendingAt)) {
+        markers = markers.update({ add: [Decoration.replace({}).range(effect.value, effect.value + 1)] });
+      }
+    }
+    return markers;
   },
-  provide: field => EditorView.decorations.from(field, pos => pos === null ? Decoration.none :
-    Decoration.set([Decoration.replace({}).range(pos, pos + 1)]))
+  provide: field => EditorView.decorations.from(field)
 });
+
+function hasPendingQuote(state, cursor) {
+  if (cursor < 2) return false;
+  const marker = state.field(pendingQuote, false)?.iter(cursor - 2);
+  return marker?.from === cursor - 2 && marker.to === cursor - 1;
+}
 
 function quoteExtension(isMarkdown) {
   return [pendingQuote, EditorState.transactionFilter.of(tr => {
@@ -33,8 +44,7 @@ function quoteExtension(isMarkdown) {
     if (!input || !/[>》 ]$/.test(input) || isLiteral(state, source)) return tr;
     const line = tr.newDoc.lineAt(cursor);
     const prefix = tr.newDoc.sliceString(line.from, cursor);
-    const pending = state.field(pendingQuote);
-    if (input === ' ' && pending !== null && source === pending + 2 && prefix.endsWith('\\> ')) {
+    if (input === ' ' && hasPendingQuote(state, source) && prefix.endsWith('\\> ')) {
       return [tr, { sequential: true, changes: { from: cursor - 3, to: cursor - 2 } }];
     }
     const marker = /^ {0,3}(?:>[ \t]{0,4})*([>》] ?)$/.exec(prefix);
@@ -53,8 +63,8 @@ function quoteExtension(isMarkdown) {
 
 function removeQuoteMarker(view, line, cursor) {
   const { state } = view;
-  const pending = state.field(pendingQuote, false);
-  if (pending != null && cursor === pending + 2) {
+  if (hasPendingQuote(state, cursor)) {
+    const pending = cursor - 2;
     view.dispatch({ changes: { from: pending, to: cursor }, selection: { anchor: pending }, userEvent: 'delete.backward' });
     return true;
   }
